@@ -1,0 +1,3 @@
+[submodule "shared/native/include"]
+	path = shared/native/include
+	url = git@github.com:codeplea/tinyexpr.git
