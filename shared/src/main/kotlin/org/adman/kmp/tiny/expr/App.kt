@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import org.adman.kmp.tiny.expr.component.Greeting
 import org.adman.kmp.tiny.expr.ui.theme.AppTheme
+import org.adman.kmp.tiny.shared.R
 
 @Composable
 fun App() {
