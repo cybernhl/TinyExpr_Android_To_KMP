@@ -10,7 +10,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 # --- 定義原生程式碼的路徑 (相對於此 CMakeLists.txt) ---
 # CMAKE_CURRENT_SOURCE_DIR 是 shared/src/main/jni/
 # 我們需要向上三層到 shared/，然後再進入 native/
-set(NATIVE_CODE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../native")
+set(NATIVE_CODE_ROOT_DIR "../../../native")
 
 message(STATUS "CMakeLists.txt is at: ${CMAKE_CURRENT_SOURCE_DIR}")
 message(STATUS "Looking for native code in: ${NATIVE_CODE_ROOT_DIR}")

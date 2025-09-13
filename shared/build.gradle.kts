@@ -1,9 +1,50 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.jetbrains.compose)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.jetbrains.compose.hot.reload)
+}
+
+group = "org.adman.kmp.tiny.expr"
+version = "1.0-SNAPSHOT"
+
+kotlin {
+    androidTarget {
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
+    }
+    sourceSets {
+        commonMain.dependencies {
+            implementation(compose.ui)
+            implementation(compose.runtime)
+            implementation(compose.material)
+            implementation(compose.material3)
+            implementation(compose.components.resources)
+        }
+
+        //Ref : https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-run-tests.html#work-with-more-complex-projects
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
+
+        androidMain.dependencies {
+        }
+
+        androidUnitTest.dependencies {
+            implementation(libs.junit)
+        }
+
+        androidInstrumentedTest.dependencies {
+            implementation(libs.androidx.junit)
+            implementation(libs.androidx.espresso.core)
+        }
+    }
 }
 
 android {
@@ -34,9 +75,9 @@ android {
 
     externalNativeBuild {
         cmake {
-//            path = file("src/main/jni/CMakeLists.txt")
+//            path = file("./src/androidMain/jni/CMakeLists.txt")
             path = file("native/CMakeLists.txt")
-            version= "3.18.1"
+            version = "3.18.1"
         }
     }
 
@@ -44,18 +85,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
 }
 
 dependencies {
-    implementation(compose.ui)
-    implementation(compose.runtime)
-    implementation(compose.material)
-    implementation(compose.material3)
+}
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "org.adman.kmp.tiny.expr"
+    generateResClass = always
 }

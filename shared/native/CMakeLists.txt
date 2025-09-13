@@ -34,18 +34,27 @@ if (DEFINED ANDROID_ABI AND ANDROID_ABI)
     # CMake 會自動在那裡尋找 CMakeLists.txt。
     # 該子目錄的建置檔案會產生在 CMAKE_CURRENT_BINARY_DIR 下的一個對應子目錄中。
 
-    set(ANDROID_CMAKE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../src/main/jni")
-    message(STATUS "Top-level CMake: Adding subdirectory for Android build: ${ANDROID_CMAKE_DIR}")
+    set(ANDROID_CMAKE_SUBDIR_PATH "../src/androidMain/jni") # 相對於 native/ 的路徑
 
-    if (IS_DIRECTORY "${ANDROID_CMAKE_DIR}")
-        # 第二個參數是二進位檔案輸出子目錄的名稱，可以與源子目錄同名
-        # 例如，如果 CMAKE_BINARY_DIR 是 build/cxx/...,
-        # 那麼這個子專案的建置檔案會放在 build/cxx/.../android_build/
-        add_subdirectory("${ANDROID_CMAKE_DIR}" android_build)
-        message(STATUS "Top-level CMake: Successfully added Android subdirectory.")
-    else ()
-        message(FATAL_ERROR "Top-level CMake: Android CMakeLists.txt directory not found at ${ANDROID_CMAKE_DIR}")
-    endif ()
+    set(ANDROID_CMAKE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${ANDROID_CMAKE_SUBDIR_PATH}")
+    # 或者，更明確的寫法，如果 CMAKE_CURRENT_SOURCE_DIR 就是 native/ 所在的目錄：
+    # get_filename_component(PARENT_DIR ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY) # PARENT_DIR is shared/
+    # set(ANDROID_CMAKE_DIR "${PARENT_DIR}/src/androidMain/jni")
+
+    message(STATUS "Top-level CMake: Attempting to add Android subdirectory at: ${ANDROID_CMAKE_DIR}")
+
+    if(IS_DIRECTORY "${ANDROID_CMAKE_DIR}")
+        # 檢查該目錄下是否有 CMakeLists.txt
+        if(EXISTS "${ANDROID_CMAKE_DIR}/CMakeLists.txt")
+            message(STATUS "Top-level CMake: Found CMakeLists.txt in ${ANDROID_CMAKE_DIR}")
+            add_subdirectory("${ANDROID_CMAKE_DIR}" android_build)
+            message(STATUS "Top-level CMake: Successfully added Android subdirectory: ${ANDROID_CMAKE_DIR}")
+        else()
+            message(FATAL_ERROR "Top-level CMake: CMakeLists.txt NOT found in directory: ${ANDROID_CMAKE_DIR}")
+        endif()
+    else()
+        message(FATAL_ERROR "Top-level CMake: Android CMakeLists.txt directory NOT found at: ${ANDROID_CMAKE_DIR}")
+    endif()
 
 else ()
     message(STATUS "Top-level CMake: Detected Non-Android platform (or ANDROID_ABI not defined).")

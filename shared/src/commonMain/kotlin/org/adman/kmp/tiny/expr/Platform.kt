@@ -4,4 +4,4 @@ interface Platform {
     val name: String
 }
 
-fun getPlatform(): Platform= AndroidPlatform()
+expect fun getPlatform(): Platform
