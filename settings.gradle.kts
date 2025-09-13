@@ -78,5 +78,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "KMP-TinyExpr"
-include(":shared")
+include(":composeApp")
 include(":app")
