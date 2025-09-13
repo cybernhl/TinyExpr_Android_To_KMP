@@ -1,7 +1,9 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.jetbrains.compose)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.jetbrains.compose.hot.reload)
 }
 
 android {
@@ -48,11 +50,10 @@ android {
 }
 
 dependencies {
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.material)
-    implementation(libs.androidx.compose.material3)
+    implementation(compose.ui)
+    implementation(compose.runtime)
+    implementation(compose.material)
+    implementation(compose.material3)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
