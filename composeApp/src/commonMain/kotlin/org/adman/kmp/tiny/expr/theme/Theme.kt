@@ -1,15 +1,18 @@
-package org.adman.kmp.tiny.expr.ui.theme
+package org.adman.kmp.tiny.expr.theme
 
-import android.app.Activity
-import android.os.Build
+
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import org.adman.kmp.tiny.expr.ui.theme.Pink40
+import org.adman.kmp.tiny.expr.ui.theme.Pink80
+import org.adman.kmp.tiny.expr.ui.theme.Purple40
+import org.adman.kmp.tiny.expr.ui.theme.Purple80
+import org.adman.kmp.tiny.expr.ui.theme.PurpleGrey40
+import org.adman.kmp.tiny.expr.ui.theme.PurpleGrey80
+import org.adman.kmp.tiny.expr.ui.theme.Typography
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,

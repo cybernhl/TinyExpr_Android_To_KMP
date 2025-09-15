@@ -10,15 +10,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.material.Button
-import androidx.compose.material.Text
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.painterResource
 import org.adman.kmp.tiny.expr.component.Greeting
-import org.adman.kmp.tiny.expr.ui.theme.AppTheme
+import org.adman.kmp.tiny.expr.theme.AppTheme
 import org.jetbrains.compose.resources.stringResource
 
 @Composable

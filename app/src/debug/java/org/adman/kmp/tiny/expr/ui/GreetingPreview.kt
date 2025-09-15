@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import org.adman.kmp.tiny.expr.component.Greeting
 
-import org.adman.kmp.tiny.expr.ui.theme.AppTheme
+import org.adman.kmp.tiny.expr.theme.AppTheme
 
 @Preview(showBackground = true)
 @Composable

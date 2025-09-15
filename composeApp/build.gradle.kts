@@ -19,6 +19,29 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
+
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "ComposeApp"
+            /** Because we are linking our library inside the composeApp, we can not
+             * use a static library. You can avoid this by linking in the def file.
+             **/
+            isStatic = false
+            // For linking our library. You can specify this on def file also
+            linkerOpts("-L${rootDir}/composeApp/native/ios","-ltinyexpr_ios_sim")
+        }
+
+        iosTarget.compilations["main"].cinterops.create("tinyexpr"){
+            definitionFile = file("nativeInterop/cinterop/tinyexpr.def")
+            // Header dir
+            includeDirs("native/include")
+        }
+    }
+
     sourceSets {
         commonMain.dependencies {
             implementation(compose.ui)
@@ -60,7 +83,7 @@ android {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
         }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
+//        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
