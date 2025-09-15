@@ -27,12 +27,12 @@ kotlin {
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "shared"
-            /** Because we are linking our library inside the composeApp, we can not
+            /** Because we are linking our library inside the shared, we can not
              * use a static library. You can avoid this by linking in the def file.
              **/
             isStatic = false
             // For linking our library. You can specify this on def file also
-            linkerOpts("-L${rootDir}/composeApp/native/ios","-ltinyexpr_ios_sim")
+            linkerOpts("-L${rootDir}/shared/native/ios","-ltinyexpr_ios_sim")
         }
 
         iosTarget.compilations["main"].cinterops.create("tinyexpr"){
