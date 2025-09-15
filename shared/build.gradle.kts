@@ -13,6 +13,7 @@ group = "org.adman.kmp.tiny.expr"
 version = "1.0-SNAPSHOT"
 
 kotlin {
+    jvm("desktop")
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
@@ -54,6 +55,13 @@ kotlin {
         //Ref : https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-run-tests.html#work-with-more-complex-projects
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+
+        val desktopMain by getting
+
+        desktopMain.dependencies {
+            api(compose.desktop.currentOs)
+            implementation(libs.kotlinx.coroutines.swing)
         }
 
         androidMain.dependencies {
