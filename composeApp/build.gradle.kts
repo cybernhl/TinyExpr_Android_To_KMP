@@ -26,7 +26,7 @@ kotlin {
         iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
-            baseName = "ComposeApp"
+            baseName = "shared"
             /** Because we are linking our library inside the composeApp, we can not
              * use a static library. You can avoid this by linking in the def file.
              **/
