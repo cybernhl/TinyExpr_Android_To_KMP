@@ -59,14 +59,32 @@ if (DEFINED ANDROID_ABI AND ANDROID_ABI)
 else ()
     message(STATUS "Top-level CMake: Detected Non-Android platform (or ANDROID_ABI not defined).")
     message(STATUS "Top-level CMake: Placeholder for Desktop/Other platform native build.")
+    # --- Call CMakeLists.txt in src/desktopMain/jni/ ---
+    # CMAKE_CURRENT_SOURCE_DIR is shared/native/
+    # The path to desktopMain/jni/ is ../src/desktopMain/jni/
 
-    # --- 這裡是你為非 Android 平台（例如桌面 JVM）配置 CMake 的地方 ---
+    set(DESKTOP_CMAKE_SUBDIR_PATH "../src/desktopMain/jni") # Relative path from native/
+    set(DESKTOP_CMAKE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${DESKTOP_CMAKE_SUBDIR_PATH}")
 
+    message(STATUS "Top-level CMake (native/): Attempting to add Desktop subdirectory at: ${DESKTOP_CMAKE_DIR}")
 
-    message(WARNING "Desktop/Other platform build logic is not yet implemented in this top-level CMakeLists.txt.")
-    add_custom_target(desktop_placeholder ALL
-            COMMAND ${CMAKE_COMMAND} -E echo "Desktop placeholder target executed"
-    )
+    if(IS_DIRECTORY "${DESKTOP_CMAKE_DIR}")
+        if(EXISTS "${DESKTOP_CMAKE_DIR}/CMakeLists.txt")
+            message(STATUS "Top-level CMake (native/): Found CMakeLists.txt in ${DESKTOP_CMAKE_DIR}")
+            # When add_subdirectory is called:
+            # 1. CMake processes the CMakeLists.txt in DESKTOP_CMAKE_DIR.
+            # 2. Inside that sub-CMakeLists.txt, CMAKE_CURRENT_SOURCE_DIR will correctly be
+            #    shared/src/desktopMain/jni/.
+            # 3. The build outputs for this sub-project will go into a subdirectory
+            #    (e.g., desktop_build_from_native) within the main build directory.
+            add_subdirectory("${DESKTOP_CMAKE_DIR}" desktop_build_from_native) # Binary dir for this sub-project
+            message(STATUS "Top-level CMake (native/): Successfully added Desktop subdirectory: ${DESKTOP_CMAKE_DIR}")
+        else()
+            message(FATAL_ERROR "Top-level CMake (native/): CMakeLists.txt NOT found in Desktop directory: ${DESKTOP_CMAKE_DIR}")
+        endif()
+    else()
+        message(FATAL_ERROR "Top-level CMake (native/): Desktop CMakeLists.txt directory NOT found at: ${DESKTOP_CMAKE_DIR}")
+    endif()
 endif ()
 
 message(STATUS "Top-level CMake: Configuration finished.")

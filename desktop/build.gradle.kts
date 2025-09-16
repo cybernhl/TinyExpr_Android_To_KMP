@@ -35,6 +35,15 @@ tasks.withType<JavaExec> {//FIXME
     systemProperty("java.library.path", libPath)
 }
 
+project.afterEvaluate {
+    tasks.findByName("run")?.let { runTask ->
+        println("Task :desktop:run depends on:")
+        runTask.taskDependencies.getDependencies(runTask).forEach { dependency ->
+            println("- ${dependency.path}")
+        }
+    }
+}
+
 //https://medium.com/@makeevrserg/compose-desktop-shadowjar-1cba3aba9a58
 compose.desktop {
     application {
