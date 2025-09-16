@@ -139,13 +139,9 @@ val platformIdentifier = when {
     else -> "unknown"
 }
 
-
-//val jniSourceDir = project.file("src/desktopMain/jni")
 val jniSourceDir = project.file("native")
 val cmakeBuildDir = project.layout.buildDirectory.dir(".cxx/$platformIdentifier") // Temporary CMake build dir, platform specific
-//val finalDesktopNativeLibsDir = project.file("native/desktop/$platformIdentifier")
 val finalDesktopNativeLibsDir = project.file("native")
-//val runtimeNativeLibsDir = project.layout.buildDirectory.dir(cmakeOutputSubDirName).get().asFile
 
 val compileDesktopJniLib = tasks.register<Exec>("compileDesktopJniLib") {
     group = "build"
@@ -178,50 +174,69 @@ val compileDesktopJniLib = tasks.register<Exec>("compileDesktopJniLib") {
             // If you have specific targets in CMakeLists.txt:
             // commandLine(makeCommand, "your_cmake_target_name")
         }
+        finalDesktopNativeLibsDir.mkdirs()
+        val sourceBuildDir = cmakeBuildDir.get().asFile
+        val targetOutputDir = finalDesktopNativeLibsDir
 
-        // Copy the built library to the final destination
-        finalDesktopNativeLibsDir.mkdirs() // Ensure final directory exists
-        val builtLibName = System.mapLibraryName("tinyexpr_jni") // From your CMakeLists.txt: add_library(tinyexpr_jni ...)
-        // This will generate libtinyexpr_jni.so, tinyexpr_jni.dll, etc.
-
-        var foundLib: File? = null
-        cmakeBuildDir.get().asFile.walkTopDown().forEach { file ->
-            if (file.isFile) {
-                // For Windows, CMake with MinGW Makefiles might produce "lib<name>.dll" or "<name>.dll"
-                // For Unix, it's usually "lib<name>.so" or "lib<name>.dylib"
-                val targetNameWithoutLibPrefix = builtLibName.removePrefix("lib") // e.g. tinyexpr_jni.dll
-                if (file.name == builtLibName || file.name == targetNameWithoutLibPrefix) {
-                    foundLib = file
-                    return@forEach
-                }
+        val filesToRenameInSource = mutableListOf<Pair<File, File>>()
+        sourceBuildDir.walkTopDown().forEach { file ->
+            if (file.isFile && file.name.startsWith("lib") && file.name.endsWith(".dll")) {
+                val newName = file.name.substring(3)
+                val newFile = File(file.parentFile, newName)
+                filesToRenameInSource.add(Pair(file, newFile))
             }
         }
 
-        if (foundLib != null && foundLib!!.exists()) {
-            val destinationFile = File(finalDesktopNativeLibsDir, foundLib!!.name.removePrefix("lib")) // Remove "lib" prefix for final name if desired, especially for DLLs
+        filesToRenameInSource.forEach { (originalFile, newFile) ->
+            originalFile.renameTo(newFile)
+        }
+        var actualContentRoot: File? = null
 
-            project.copy {
-                from(foundLib)
-                into(finalDesktopNativeLibsDir)
-                // Standardize the name by removing "lib" prefix, which is common for DLLs.
-                // For .so and .dylib, keeping "lib" is standard.
-                rename { fileName ->
-                    if (currentOs.isWindows && fileName.startsWith("lib") && fileName.endsWith(".dll")) {
-                        fileName.substring(3)
-                    } else {
-                        fileName
-                    }
+        val searchQueue = ArrayDeque<File>()
+        if (sourceBuildDir.isDirectory) {
+            searchQueue.add(sourceBuildDir)
+        }
+
+        while (searchQueue.isNotEmpty() && actualContentRoot == null) {
+            val currentDir = searchQueue.removeFirst()
+            var foundLibInCurrentDir = false
+            currentDir.listFiles()?.forEach { entry ->
+                if (entry.isFile &&
+                    (entry.name.endsWith(".dll") || entry.name.endsWith(".so") || entry.name.endsWith(".dylib"))
+                ) {
+                    foundLibInCurrentDir = true
                 }
             }
-            var finalCopiedName = foundLib!!.name
-            if (currentOs.isWindows && foundLib!!.name.startsWith("lib") && foundLib!!.name.endsWith(".dll")) {
-                finalCopiedName = foundLib!!.name.substring(3)
+
+            if (foundLibInCurrentDir) {
+                actualContentRoot = currentDir
+            } else {
+                currentDir.listFiles()?.filter { it.isDirectory }?.forEach { subDir ->
+                    searchQueue.add(subDir)
+                }
             }
-            println("JNI library '${destinationFile.name}' for Desktop JVM ($platformIdentifier) copied to ${finalDesktopNativeLibsDir.path}")
+        }
+        if (actualContentRoot != null && actualContentRoot!!.exists() && actualContentRoot!!.isDirectory) {
+            project.copy {
+                from(project.fileTree(actualContentRoot!!) {
+                    include(
+                        "**/*.dll",
+                        "**/*.so",
+                        "**/*.dylib"
+                    )
+                    exclude(
+                        "**/CMakeFiles/**",        // 排除所有名為 CMakeFiles 的目錄及其內容
+                        "**/CMakeFiles.*/**",     // 排除所有名為 CMakeFiles.something.dir 的目錄及其內容
+                        "**/*.cmake",             // 通常也不需要複製 .cmake 檔案
+                        "**/Makefile",            // 通常也不需要複製 Makefile
+                        "**/cmake_install.cmake"  // 通常也不需要這個
+                        // 你可以根據 CMake 產生的其他不需要的中繼檔案/目錄添加更多排除規則
+                    )
+                })
+                into(targetOutputDir)
+            }
         } else {
-            logger.error("Failed to find built JNI library '$builtLibName' (or without 'lib' prefix) in ${cmakeBuildDir.get().asFile.path}")
-            // Consider throwing an exception if the library is crucial
-            // throw GradleException("JNI library build failed: output not found.")
+
         }
     }
 }
