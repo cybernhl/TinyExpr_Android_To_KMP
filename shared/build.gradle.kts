@@ -47,10 +47,8 @@ kotlin {
         iosArm64("iosArm64"), // for real devices
         iosSimulatorArm64("iosSimulatorArm64") // for simulator on Apple Silicon Macs
     )
-
-    val topLevelCMakeListsDir = project.file("native")//FIXME can not use Top
     // 指向包含 CMakeLists.txt 的目錄
-    val cmkelistfolder = project.file("src/iosMain/native")
+    val cmkelistfolder = project.file("native")// this is local :  project.file("src/iosMain/native")
     // CMake 建置的輸出目錄
     val cLibBuildDir = layout.buildDirectory.dir(".cxx")
 
@@ -97,7 +95,6 @@ kotlin {
                 cmkelistfolder.absolutePath,
                 "-G", "Ninja",
                 "-DCMAKE_BUILD_TYPE=Release",
-
                 // Set fundamental toolchain variables for CMake
                 "-DCMAKE_SYSTEM_NAME=iOS",
                 "-DCMAKE_OSX_ARCHITECTURES=${clangArch}",
