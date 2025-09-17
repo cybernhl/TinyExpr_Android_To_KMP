@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.22.1)
 project(tinyexpr_jni_for_desktop) # Project name
 
 # Set C language standard

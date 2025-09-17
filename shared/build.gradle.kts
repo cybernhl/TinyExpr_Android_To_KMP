@@ -1,9 +1,7 @@
-
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
-import org.gradle.internal.os.OperatingSystem // Import OperatingSystem
+import org.gradle.internal.os.OperatingSystem
+import org.jetbrains.kotlin.konan.target.KonanTarget
 
 plugins {
     alias(libs.plugins.android.library)
@@ -15,6 +13,25 @@ plugins {
 
 group = "org.adman.kmp.tiny.expr"
 version = "1.0-SNAPSHOT"
+val androidHome = System.getenv("ANDROID_HOME")
+val cmakeVersion = "3.22.1" // Or read from a property if it changes often
+
+val cmakeExecutable = if (androidHome != null && androidHome.isNotBlank()) {
+    // Construct the path using File objects for better path handling (joins, etc.)
+    // and ensure the path is valid.
+    val cmakeBinDir = File(File(androidHome, "cmake"), cmakeVersion).resolve("bin")
+    val cmakeFile = File(cmakeBinDir, "cmake")
+    if (cmakeFile.exists() && cmakeFile.canExecute()) {
+        project.logger.lifecycle("Using CMake from ANDROID_HOME: ${cmakeFile.absolutePath}")
+        cmakeFile.absolutePath
+    } else {
+        project.logger.warn("CMake not found or not executable at ${cmakeFile.absolutePath}. Falling back to 'cmake' in PATH.")
+        "cmake" // Fallback to hoping 'cmake' is in PATH if specific one isn't found
+    }
+} else {
+    project.logger.warn("ANDROID_HOME environment variable not set or empty. Falling back to 'cmake' in PATH.")
+    "cmake" // Fallback if ANDROID_HOME is not set
+}
 
 kotlin {
     jvm("desktop")
@@ -25,25 +42,118 @@ kotlin {
         }
     }
 
-    listOf(
-        iosX64(),
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
+    val iOSTargets = listOf(
+        iosX64("iosX64"), // for simulator on Intel Macs
+        iosArm64("iosArm64"), // for real devices
+        iosSimulatorArm64("iosSimulatorArm64") // for simulator on Apple Silicon Macs
+    )
+
+    val topLevelCMakeListsDir = project.file("native")//FIXME can not use Top
+    // 指向包含 CMakeLists.txt 的目錄
+    val cmkelistfolder = project.file("src/iosMain/native")
+    // CMake 建置的輸出目錄
+    val cLibBuildDir = layout.buildDirectory.dir(".cxx")
+
+    iOSTargets.forEach { iosTarget ->
+        // 1. ===== 為每個 iOS 架構建立執行 CMake 的 Gradle Task 來執行 CMake 為每個 iOS 架構編譯 *.a =====
+        val buildCLibTaskName = "buildTinyexprFor${iosTarget.name.capitalize()}"
+        val buildCLibTaskProvider = tasks.register<Exec>(buildCLibTaskName) {
+            group = "C Library"
+            description = "Builds the tinyexpr C static library for ${iosTarget.name}"
+
+            val targetBuildDir = cLibBuildDir.get().dir(iosTarget.name)
+            workingDir = targetBuildDir.asFile
+
+            inputs.dir(project.file("src"))
+            inputs.dir(project.file("native"))
+            outputs.file(targetBuildDir.file("lib/libtinyexpr.a"))
+
+            doFirst {
+                targetBuildDir.asFile.deleteRecursively()
+                targetBuildDir.asFile.mkdirs()
+            }
+
+            val sdkPathProvider = providers.exec { // Ensure this provider is correctly defined as before
+                commandLine("xcrun", "--sdk", iosTarget.sdkName().toLowerCase(), "--show-sdk-path")
+            }
+
+            // 【為 Clang 編譯器提供必要的旗標來解決 "compiler is broken" 問題
+            // --- Correctly map KonanTarget architecture to Clang -arch flag ---
+            val clangArch = when (iosTarget.konanTarget) {
+                org.jetbrains.kotlin.konan.target.KonanTarget.IOS_ARM64 -> "arm64"
+                org.jetbrains.kotlin.konan.target.KonanTarget.IOS_X64 -> "x86_64"
+                org.jetbrains.kotlin.konan.target.KonanTarget.IOS_SIMULATOR_ARM64 -> "arm64"
+                else -> error("Unsupported iOS target for CMake build: ${iosTarget.konanTarget}")
+            }
+
+            val sdkPath = sdkPathProvider.standardOutput.asText.get().trim()
+            val arch = iosTarget.konanTarget.architecture.name
+
+// Ensure miphoneos-version-min matches your project's deployment target
+            val cFlagsForCMake = "-miphoneos-version-min=13.0" // Or any other general flags you need, but avoid -arch and -isysroot
+
+            commandLine(
+                cmakeExecutable,
+                cmkelistfolder.absolutePath,
+                "-G", "Ninja",
+                "-DCMAKE_BUILD_TYPE=Release",
+
+                // Set fundamental toolchain variables for CMake
+                "-DCMAKE_SYSTEM_NAME=iOS",
+                "-DCMAKE_OSX_ARCHITECTURES=${clangArch}",
+                "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0", // This should set -miphoneos-version-min
+
+                // --- Explicitly provide the SDK path to CMake ---
+                "-DCMAKE_OSX_SYSROOT=${sdkPath}",
+
+                // Pass other C flags if necessary.
+                // If CMAKE_OSX_DEPLOYMENT_TARGET correctly sets the min version,
+                // CMAKE_C_FLAGS might not need anything specific here, or only very specific flags.
+                "-DCMAKE_C_FLAGS=${cFlagsForCMake}"
+            )
+
+            doLast {
+                exec {
+                    workingDir = targetBuildDir.asFile
+                    commandLine(cmakeExecutable, "--build", ".")
+                }
+            }
+        }
+        // 2. ===== 設定 C-Interop (包含連結器選項和任務依賴) =====
+        val cinterop = iosTarget.compilations.getByName("main").cinterops.create("tinyexpr") {
+
+            defFile(project.file("src/iosMain/cinterop/tinyexpr.def"))
+
+            compilerOpts("-I${project.projectDir}/native/include")
+        }
+        // 將 cinterop 任務設定為依賴 CMake 任務
+        tasks.named(cinterop.interopProcessingTaskName).configure(object : Action<Task> {
+            override fun execute(cinteropTask: Task) {
+                cinteropTask.dependsOn(buildCLibTaskProvider)
+            }
+        })
+        // 3. ===== 設定最終 Framework 的連結 =====
         iosTarget.binaries.framework {
             baseName = "shared"
-            /** Because we are linking our library inside the shared, we can not
-             * use a static library. You can avoid this by linking in the def file.
-             **/
             isStatic = false
-            // For linking our library. You can specify this on def file also
-            linkerOpts("-L${rootDir}/shared/native/ios","-ltinyexpr_ios_sim")
-        }
 
-        iosTarget.compilations["main"].cinterops.create("tinyexpr"){
-            definitionFile = file("nativeInterop/cinterop/tinyexpr.def")
-            // Header dir
-            includeDirs("native/include")
+            // 取得對應此 target 的 C 函式庫建置目錄
+            val cLibOutputDir = cLibBuildDir.get().dir(iosTarget.name).dir("lib")
+
+            // 將 CMake Task 作為 linkTask 的依賴，確保 .a 檔案先被編譯好
+//            linkTaskProvider.dependsOn(buildCLibTaskProvider)
+            linkTaskProvider.configure(object : Action<org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink> {
+                override fun execute(linkTask: org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink) {
+                    linkTask.dependsOn(buildCLibTaskProvider)
+                }
+            })
+
+            // 在 framework 區塊內，linkerOpts 是一個函式
+            // 將我們的 .a 函式庫路徑和名稱傳遞給最終的連結器
+            linkerOpts(
+                "-L${cLibOutputDir.asFile.absolutePath}",
+                "-ltinyexpr"
+            )
         }
     }
 
@@ -82,6 +192,15 @@ kotlin {
     }
 }
 
+// 輔助函數，用於獲取 iOS SDK 名稱
+fun org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget.sdkName(): String {
+    return when (konanTarget) {
+        KonanTarget.IOS_X64, KonanTarget.IOS_SIMULATOR_ARM64 -> "iphonesimulator"
+        KonanTarget.IOS_ARM64 -> "iphoneos"
+        else -> "unknown"
+    }
+}
+
 android {
     namespace = "org.adman.kmp.tiny.shared"
     compileSdk = 36
@@ -112,7 +231,7 @@ android {
         cmake {
 //            path = file("./src/androidMain/jni/CMakeLists.txt")
             path = file("native/CMakeLists.txt")
-            version = "3.18.1"
+            version = "3.22.1"
         }
     }
 
@@ -140,7 +259,8 @@ val platformIdentifier = when {
 }
 
 val jniSourceDir = project.file("native")
-val cmakeBuildDir = project.layout.buildDirectory.dir(".cxx/$platformIdentifier") // Temporary CMake build dir, platform specific
+val cmakeBuildDir =
+    project.layout.buildDirectory.dir(".cxx/$platformIdentifier") // Temporary CMake build dir, platform specific
 val finalDesktopNativeLibsDir = project.file("native")
 
 val compileDesktopJniLib = tasks.register<Exec>("compileDesktopJniLib") {
@@ -169,7 +289,8 @@ val compileDesktopJniLib = tasks.register<Exec>("compileDesktopJniLib") {
         cmakeBuildDir.get().asFile.mkdirs()
 
         exec {
-            workingDir = cmakeBuildDir.get().asFile // Change workingDir to the CMake build directory
+            workingDir =
+                cmakeBuildDir.get().asFile // Change workingDir to the CMake build directory
             commandLine(makeCommand, "VERBOSE=1") // Or just 'makeCommand'
             // If you have specific targets in CMakeLists.txt:
             // commandLine(makeCommand, "your_cmake_target_name")
@@ -202,7 +323,9 @@ val compileDesktopJniLib = tasks.register<Exec>("compileDesktopJniLib") {
             var foundLibInCurrentDir = false
             currentDir.listFiles()?.forEach { entry ->
                 if (entry.isFile &&
-                    (entry.name.endsWith(".dll") || entry.name.endsWith(".so") || entry.name.endsWith(".dylib"))
+                    (entry.name.endsWith(".dll") || entry.name.endsWith(".so") || entry.name.endsWith(
+                        ".dylib"
+                    ))
                 ) {
                     foundLibInCurrentDir = true
                 }

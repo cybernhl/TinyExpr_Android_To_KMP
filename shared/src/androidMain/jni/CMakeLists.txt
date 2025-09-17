@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.22.1)
 # 專案名稱，最終的函式庫名稱將是 'tinyexpr' 以匹配 System.loadLibrary("tinyexpr")
 project(tinyexpr_android_module) # 專案名稱可以與函式庫名不同，但 add_library 中會用 'tinyexpr'
 
