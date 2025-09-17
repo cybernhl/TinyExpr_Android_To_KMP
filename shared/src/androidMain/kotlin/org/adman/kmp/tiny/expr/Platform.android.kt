@@ -9,3 +9,7 @@ actual fun getPlatform(): Platform {
 private class AndroidPlatform : Platform {
     override val name: String = "Android ${Build.VERSION.SDK_INT}"
 }
+
+actual fun getTinyExprResult(): Double {
+    return TinyExprJNI.eval("6 + 10* 2")
+}

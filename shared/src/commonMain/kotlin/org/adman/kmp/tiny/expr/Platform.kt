@@ -5,3 +5,9 @@ interface Platform {
 }
 
 expect fun getPlatform(): Platform
+
+interface TinyExprResult {
+    val result: Double
+}
+
+expect fun getTinyExprResult(): Double
